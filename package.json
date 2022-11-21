@@ -10,7 +10,8 @@
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^6.2.1",
     "core-js": "^3.26.1",
-    "vue": "^3.2.45"
+    "vue": "^3.2.45",
+    "vue3-spinners": "^1.2.2"
   },
   "devDependencies": {
     "@babel/core": "^7.20.2",
