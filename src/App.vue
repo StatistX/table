@@ -17,28 +17,12 @@
         </tr>
       </thead>
       <tbody>
-        <tr v-for="user in sortedAndFilteredTable" :key="user.email" @click="setActiveRow(user)">
+        <tr v-for="user in sortedAndFilteredTable" :key="user.email">
           <td v-for="value in columns" :key="value.email">{{user[value]}}</td>
         </tr>
       </tbody>
     </table>
-    <div class="page-container">
-      <div :class="{active: activePage === page}" class="page" v-for="page in tablePages" :key="page" @click="getUsersData(page)">{{page}}</div>
-      <string class="page" @click="getNextPages" v-show="tablePages < 10">Далее</string>
-    </div>
-    <p v-if="activeUserRow.length">Doubleclick to delete item</p>
-    <table v-if="activeUserRow.length">
-      <thead>
-        <tr>
-          <th v-for="(column, index) in columns" :key="index">{{column}}</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="user in activeUserRow" :key="user.email" @dblclick ="deleteActiveUser(user)">
-          <td v-for="value in columns" :key="value.email">{{user[value]}}</td>
-        </tr>
-      </tbody>
-    </table>
+    <div ref='observer' class="observer"></div>
   </div>
   <ModalWindow v-model:showModal="showModal">
     <form class="user-form" @submit.prevent>
@@ -55,7 +39,6 @@
 
 <script>
 import { VueSpinnerIos } from 'vue3-spinners'
-import _ from 'lodash'
 import ModalWindow from './components/ModalWindow.vue'
 
 export default {
@@ -72,11 +55,7 @@ export default {
       sortingReverse: false,
       filterOption: '',
       filterOptionValue: '',
-      activePage: 1,
-      rows: 5,
-      tablePages: 5,
       isLoading: false,
-      activeUserRow: [],
       showModal: false,
       newUser: {
         id: 1,
@@ -90,17 +69,27 @@ export default {
     }
   },
   methods: {
-    async getUsersData (page) {
+    async getUsersData () {
       this.isLoading = true
-      const result = await fetch('http://www.filltext.com/?rows=5&id={number|1000}&firstName={firstName}&lastName={lastName}&email={email}&phone={phone|(xxx)xxx-xx-xx}&address={addressObject}&description={lorem|32}')
+      const result = await fetch('http://www.filltext.com/?rows=15&id={number|1000}&firstName={firstName}&lastName={lastName}&email={email}&phone={phone|(xxx)xxx-xx-xx}&address={addressObject}&description={lorem|32}')
       if (!result.ok) {
         throw new Error('not fetch')
       }
       const body = await result.json()
-      this.users = await body
+      const data = await body
+      this.users = data
       this.setColumns()
       this.isLoading = false
-      if (page) this.activePage = page
+    },
+    async getMoreUserData () {
+      const result = await fetch('http://www.filltext.com/?rows=15&id={number|1000}&firstName={firstName}&lastName={lastName}&email={email}&phone={phone|(xxx)xxx-xx-xx}&address={addressObject}&description={lorem|32}')
+      if (!result.ok) {
+        throw new Error('not fetch')
+      }
+      const body = await result.json()
+      const data = await body
+      this.users = [...this.users, ...data]
+      this.setColumns()
     },
     setColumns () {
       for (let index = 0; index < this.users.length; index++) {
@@ -118,19 +107,6 @@ export default {
     },
     filterData () {
       this.filterOption = this.filterOptionValue
-      console.log(this.sortingOption)
-    },
-    getNextPages () {
-      this.tablePages += 1
-      this.activePage = this.tablePages
-      this.getUsersData()
-    },
-    setActiveRow (user) {
-      this.activeUserRow.push(user)
-      this.activeUserRow = _.uniqBy(this.activeUserRow, 'email')
-    },
-    deleteActiveUser (user) {
-      this.activeUserRow = this.activeUserRow.filter(pers => pers.email !== user.email)
     },
     addNewUser () {
       const newUser = { ...this.newUser }
@@ -140,6 +116,19 @@ export default {
   },
   mounted () {
     this.getUsersData()
+    const options = {
+      rootMargin: '0px',
+      threshold: 1.0
+    }
+    const callback = (entries, observer) => {
+      console.log(observer)
+      console.log(entries[0].isIntersecting)
+      if (entries[0].isIntersecting) {
+        this.getMoreUserData()
+      }
+    }
+    const observer = new IntersectionObserver(callback, options)
+    observer.observe(this.$refs.observer)
   },
   computed: {
     sortedTable () {
@@ -152,11 +141,18 @@ export default {
       }
     },
     sortedAndFilteredTable () {
-      if (this.sortingOption) {
+      if (this.sortingOption && this.filterOption) {
+        console.log('this.filterOption', this.filterOption)
         return this.sortedTable.filter(item => item[this.sortingOption].toString().toLowerCase().includes(this.filterOption))
       } else {
         return this.sortedTable
       }
+    }
+  },
+  watch: {
+    sortingOption () {
+      this.filterOptionValue = ''
+      this.filterData()
     }
   }
 }
